@@ -114,6 +114,14 @@
     return cell;
   };
 
+  const createIndexCell = (index) => {
+    const cell = document.createElement("td");
+    cell.className = "row-index";
+    cell.textContent = String(index + 1);
+    cell.setAttribute("aria-label", `第${index + 1}条稿件`);
+    return cell;
+  };
+
   const createNoteCell = (row) => {
     const cell = document.createElement("td");
     const input = document.createElement("textarea");
@@ -173,6 +181,7 @@
       const tableRow = document.createElement("tr");
       tableRow.dataset.id = row.id;
       tableRow.append(
+        createIndexCell(index),
         createReadonlyCell(row, "书名", row.bookTitle, true),
         createReadonlyCell(row, "作者", row.author, true),
         createReadonlyCell(row, "视频简介", row.videoDescription),
