@@ -1,4 +1,4 @@
 interface:
   display_name: "图书爆款二创"
-  short_description: "保留黄金开头与转化结尾，深度重构图书短视频文案并优化相似度"
+  short_description: "保留黄金开头与转化结尾，深度重构图书短视频文案并执行模型原创度自检"
   default_prompt: "使用 $remix-book-viral-copy 根据书名、作者和对标文案完成爆款二创。"
