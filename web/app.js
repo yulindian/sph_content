@@ -1,0 +1,236 @@
+(() => {
+  "use strict";
+
+  const STATUS_OPTIONS = ["待审核", "待制作", "已制作"];
+  const STORAGE_KEY = "sph-content-workflow-state-v1";
+  const rows = Array.isArray(window.SPH_CONTENT_ROWS) ? window.SPH_CONTENT_ROWS : [];
+
+  const tableBody = document.querySelector("#contentRows");
+  const emptyState = document.querySelector("#emptyState");
+  const searchInput = document.querySelector("#searchInput");
+  const statusFilter = document.querySelector("#statusFilter");
+  const visibleCount = document.querySelector("#visibleCount");
+  const totalCount = document.querySelector("#totalCount");
+  const reviewCount = document.querySelector("#reviewCount");
+  const makingCount = document.querySelector("#makingCount");
+  const doneCount = document.querySelector("#doneCount");
+  const dialog = document.querySelector("#contentDialog");
+  const dialogTitle = document.querySelector("#dialogTitle");
+  const dialogBook = document.querySelector("#dialogBook");
+  const dialogContent = document.querySelector("#dialogContent");
+  const dialogCopy = document.querySelector("#dialogCopy");
+  const toast = document.querySelector("#toast");
+
+  let dialogText = "";
+  let toastTimer;
+
+  const loadState = () => {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+    } catch {
+      return {};
+    }
+  };
+
+  const state = loadState();
+
+  const saveState = () => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch {
+      showToast("浏览器未允许保存备注和状态");
+    }
+  };
+
+  const ensureRowState = (row) => {
+    if (!state[row.id]) {
+      state[row.id] = { note: "", status: "待审核" };
+    }
+    if (!STATUS_OPTIONS.includes(state[row.id].status)) {
+      state[row.id].status = "待审核";
+    }
+    return state[row.id];
+  };
+
+  const showToast = (message) => {
+    window.clearTimeout(toastTimer);
+    toast.textContent = message;
+    toast.classList.add("visible");
+    toastTimer = window.setTimeout(() => toast.classList.remove("visible"), 1800);
+  };
+
+  const copyText = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const helper = document.createElement("textarea");
+      helper.value = text;
+      helper.setAttribute("readonly", "");
+      helper.style.position = "fixed";
+      helper.style.opacity = "0";
+      document.body.append(helper);
+      helper.select();
+      document.execCommand("copy");
+      helper.remove();
+    }
+    showToast("已复制");
+  };
+
+  const openDialog = (row, label, text) => {
+    dialogText = text;
+    dialogBook.textContent = `${row.bookTitle} · ${row.author}`;
+    dialogTitle.textContent = label;
+    dialogContent.textContent = text;
+    dialog.showModal();
+  };
+
+  const createButton = (label, onClick) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = label;
+    button.addEventListener("click", onClick);
+    return button;
+  };
+
+  const createReadonlyCell = (row, label, value, compact = false) => {
+    const cell = document.createElement("td");
+    const wrapper = document.createElement("div");
+    const content = document.createElement("div");
+    const actions = document.createElement("div");
+    const text = value || "";
+
+    wrapper.className = "readonly-cell";
+    content.className = `readonly-content${compact ? " compact" : ""}`;
+    content.textContent = text || "—";
+    content.title = `${label}（只读）`;
+    actions.className = "cell-actions";
+    actions.append(
+      createButton("复制", () => copyText(text)),
+      createButton("查看", () => openDialog(row, label, text))
+    );
+
+    wrapper.append(content, actions);
+    cell.append(wrapper);
+    return cell;
+  };
+
+  const createNoteCell = (row) => {
+    const cell = document.createElement("td");
+    const input = document.createElement("textarea");
+    const rowState = ensureRowState(row);
+
+    input.className = "note-input";
+    input.value = rowState.note;
+    input.placeholder = "可填写审核意见、制作要求等";
+    input.setAttribute("aria-label", `${row.bookTitle}的备注`);
+    input.addEventListener("input", () => {
+      rowState.note = input.value;
+      saveState();
+    });
+
+    cell.append(input);
+    return cell;
+  };
+
+  const createStatusCell = (row) => {
+    const cell = document.createElement("td");
+    const fieldset = document.createElement("fieldset");
+    const rowState = ensureRowState(row);
+
+    fieldset.className = "status-group";
+    fieldset.setAttribute("aria-label", `${row.bookTitle}的制作状态`);
+
+    STATUS_OPTIONS.forEach((status) => {
+      const label = document.createElement("label");
+      const input = document.createElement("input");
+      const text = document.createElement("span");
+
+      label.className = "status-option";
+      input.type = "radio";
+      input.name = `status-${row.id}`;
+      input.value = status;
+      input.checked = rowState.status === status;
+      input.addEventListener("change", () => {
+        rowState.status = status;
+        saveState();
+        updateSummary();
+        applyFilters();
+      });
+      text.textContent = status;
+      label.append(input, text);
+      fieldset.append(label);
+    });
+
+    cell.append(fieldset);
+    return cell;
+  };
+
+  const renderRows = () => {
+    tableBody.replaceChildren();
+    rows.forEach((row, index) => {
+      if (!row.id) row.id = `row-${index + 1}`;
+      ensureRowState(row);
+      const tableRow = document.createElement("tr");
+      tableRow.dataset.id = row.id;
+      tableRow.append(
+        createReadonlyCell(row, "书名", row.bookTitle, true),
+        createReadonlyCell(row, "作者", row.author, true),
+        createReadonlyCell(row, "视频简介", row.videoDescription),
+        createReadonlyCell(row, "原文", row.original),
+        createReadonlyCell(row, "二创", row.rewritten),
+        createReadonlyCell(row, "分段文案", row.segmented),
+        createReadonlyCell(row, "生图提示词", row.imagePrompts),
+        createReadonlyCell(row, "字幕", row.subtitles),
+        createNoteCell(row),
+        createStatusCell(row)
+      );
+      tableBody.append(tableRow);
+    });
+    saveState();
+  };
+
+  const updateSummary = () => {
+    const counts = { 待审核: 0, 待制作: 0, 已制作: 0 };
+    rows.forEach((row) => {
+      counts[ensureRowState(row).status] += 1;
+    });
+    totalCount.textContent = String(rows.length);
+    reviewCount.textContent = String(counts.待审核);
+    makingCount.textContent = String(counts.待制作);
+    doneCount.textContent = String(counts.已制作);
+  };
+
+  const applyFilters = () => {
+    const query = searchInput.value.trim().toLowerCase();
+    const selectedStatus = statusFilter.value;
+    let shown = 0;
+
+    rows.forEach((row) => {
+      const haystack = `${row.bookTitle} ${row.author} ${row.videoDescription}`.toLowerCase();
+      const matchesQuery = !query || haystack.includes(query);
+      const matchesStatus =
+        selectedStatus === "all" || ensureRowState(row).status === selectedStatus;
+      const tableRow = tableBody.querySelector(`[data-id="${CSS.escape(row.id)}"]`);
+      const visible = matchesQuery && matchesStatus;
+      tableRow.hidden = !visible;
+      if (visible) shown += 1;
+    });
+
+    visibleCount.textContent = `当前显示 ${shown} 条`;
+    emptyState.hidden = shown !== 0;
+    document.querySelector(".table-scroll").hidden = shown === 0;
+  };
+
+  searchInput.addEventListener("input", applyFilters);
+  statusFilter.addEventListener("change", applyFilters);
+  document.querySelector("#closeDialog").addEventListener("click", () => dialog.close());
+  document.querySelector("#dialogCloseButton").addEventListener("click", () => dialog.close());
+  dialogCopy.addEventListener("click", () => copyText(dialogText));
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+
+  renderRows();
+  updateSummary();
+  applyFilters();
+})();

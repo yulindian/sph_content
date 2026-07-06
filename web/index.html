@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="视频号图书内容生产看板">
+  <title>图书视频内容看板</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">SPH CONTENT</p>
+      <h1>图书视频内容看板</h1>
+      <p class="subtitle">集中查看文稿、复制制作素材，并跟踪每条视频的制作状态。</p>
+    </div>
+    <div class="summary" aria-label="稿件统计">
+      <div><strong id="totalCount">0</strong><span>全部稿件</span></div>
+      <div><strong id="reviewCount">0</strong><span>待审核</span></div>
+      <div><strong id="makingCount">0</strong><span>待制作</span></div>
+      <div><strong id="doneCount">0</strong><span>已制作</span></div>
+    </div>
+  </header>
+
+  <main>
+    <section class="toolbar" aria-label="筛选工具">
+      <label class="search-box">
+        <span>搜索</span>
+        <input id="searchInput" type="search" placeholder="搜索书名、作者或视频简介">
+      </label>
+      <label class="filter-box">
+        <span>制作状态</span>
+        <select id="statusFilter">
+          <option value="all">全部状态</option>
+          <option value="待审核">待审核</option>
+          <option value="待制作">待制作</option>
+          <option value="已制作">已制作</option>
+        </select>
+      </label>
+      <p id="visibleCount" class="visible-count">当前显示 0 条</p>
+    </section>
+
+    <section class="table-shell" aria-label="稿件内容表">
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th class="col-book">书名</th>
+              <th class="col-author">作者</th>
+              <th class="col-intro">视频简介</th>
+              <th class="col-long">原文</th>
+              <th class="col-long">二创</th>
+              <th class="col-long">分段文案</th>
+              <th class="col-long">生图提示词</th>
+              <th class="col-long">字幕</th>
+              <th class="col-note">备注</th>
+              <th class="col-status">制作状态</th>
+            </tr>
+          </thead>
+          <tbody id="contentRows"></tbody>
+        </table>
+      </div>
+      <div id="emptyState" class="empty-state" hidden>
+        <strong>还没有稿件</strong>
+        <span>运行全流程 Skill 后，新稿会显示在这里。</span>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="contentDialog">
+    <div class="dialog-header">
+      <div>
+        <p id="dialogBook" class="dialog-book"></p>
+        <h2 id="dialogTitle">查看内容</h2>
+      </div>
+      <button id="closeDialog" class="icon-button" type="button" aria-label="关闭">×</button>
+    </div>
+    <pre id="dialogContent"></pre>
+    <div class="dialog-actions">
+      <button id="dialogCopy" class="primary-button" type="button">复制全部</button>
+      <button id="dialogCloseButton" class="secondary-button" type="button">关闭</button>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="./data.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
