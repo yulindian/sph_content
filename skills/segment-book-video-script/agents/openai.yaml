@@ -1,0 +1,4 @@
+interface:
+  display_name: "图书文案分段"
+  short_description: "将图书口播文案按完整叙事逻辑切分为适合分镜的五十至八十字段落"
+  default_prompt: "使用 $segment-book-video-script 将这篇图书口播文案按分镜逻辑分段。"

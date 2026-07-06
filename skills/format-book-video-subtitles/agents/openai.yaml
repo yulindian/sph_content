@@ -1,0 +1,4 @@
+interface:
+  display_name: "图书视频字幕"
+  short_description: "将图书口播文案清洗并切分为每行不超过九字的无标点纯文本字幕"
+  default_prompt: "使用 $format-book-video-subtitles 将这篇文案排版为可导入剪辑软件的字幕。"

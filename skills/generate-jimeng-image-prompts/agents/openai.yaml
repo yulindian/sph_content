@@ -1,0 +1,4 @@
+interface:
+  display_name: "即梦生图提示词"
+  short_description: "把分段文案逐段转化为四比三横屏电影级写实纪录片生图提示词"
+  default_prompt: "使用 $generate-jimeng-image-prompts 为这些分段文案生成即梦生图提示词。"

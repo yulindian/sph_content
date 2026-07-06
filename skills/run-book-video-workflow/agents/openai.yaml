@@ -1,0 +1,4 @@
+interface:
+  display_name: "图书视频全流程"
+  short_description: "一键完成二创查重、分段、生图、字幕和视频简介，并按稿件累计成表"
+  default_prompt: "使用 $run-book-video-workflow 根据书名、作者和对标文案跑完全流程，并把新稿追加到累计表格。"
