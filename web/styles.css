@@ -193,7 +193,7 @@ button:focus-visible {
 
 table {
   width: 100%;
-  min-width: 2420px;
+  min-width: 2660px;
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
@@ -273,6 +273,51 @@ tbody tr:nth-child(even) .row-index {
   width: 255px;
 }
 
+.board-section + .board-section {
+  margin-top: 2rem;
+}
+
+.section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 0 0.75rem;
+  padding: 0 0.25rem;
+}
+
+.section-heading h2 {
+  margin: 0.12rem 0 0;
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 1.25rem;
+}
+
+.section-heading > span {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.section-kicker {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.completed-section .section-kicker {
+  color: var(--green);
+}
+
+.completed-table-shell {
+  border-color: rgba(51, 117, 92, 0.32);
+}
+
+.col-link {
+  width: 240px;
+}
+
 .col-long {
   width: 310px;
 }
@@ -342,6 +387,15 @@ tbody tr:nth-child(even) .row-index {
   padding: 0.65rem;
   resize: vertical;
   line-height: 1.55;
+}
+
+.video-link-cell {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.video-link-input {
+  width: 100%;
 }
 
 .status-group {

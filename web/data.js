@@ -39,7 +39,7 @@
     "如果你经常感到努力和回报不成正比，如果你想知道如何利用业余时间启动自己的睡后收入系统，那这个视频真的值得你多看几遍。也欢迎分享给那些和你一样渴望进步的朋友。更多精彩内容，我们下期再见。"
   ];
 
-  const rewritten = segments.join("");
+  const rewritten = segments.join("\n");
   const prompts = [
     "【1】现代城市清晨，一位普通上班族站在高楼窗前凝望远处渐亮的天际，桌面摊着笔记本与资产曲线图，暖金晨光勾勒人物侧影，氛围从怀疑转向期待，中景水平视野，4:3横屏构图，8k超清电影级写实纪录片质感，无后期文字。",
     "【2】现代深夜办公室，疲惫职员伏在电脑前，窗外写字楼灯光横向延展，冷蓝屏幕光与暖黄台灯形成对比，表现加班与财富焦虑，中景侧拍，4:3横屏构图，8k超清电影级写实纪录片质感，无后期文字。",
@@ -79,29 +79,109 @@
   ];
 
   const makeSubtitles = (text, title) => {
-    const protectedText = text.replaceAll(`《${title}》`, `\n${title}\n`).replaceAll(title, `\n${title}\n`);
+    const titlePunctuation = /[\s，。！？；：、“”‘’（）《》【】…—,.!?;:'"()[\]{}<>|\\/~～]+/g;
+    const rawTitle = String(title || "").replace(/[《》]/g, "");
+    const titleText = rawTitle.replace(titlePunctuation, "");
+    const titleMarker = "\u0000TITLE\u0000";
+    const protectedText = text
+      .replaceAll(`《${rawTitle}》`, titleMarker)
+      .replaceAll(rawTitle, titleMarker)
+      .replaceAll(titleText, titleMarker);
     const units = protectedText
-      .split(/[\n，。！？；：、,.!?;:“”"（）()]+/)
+      .split(/(\u0000TITLE\u0000|[\n，。！？；：、,.!?;:“”"（）()]+)/)
       .map((item) => item.trim())
       .filter(Boolean);
     const lines = [];
-    units.forEach((unit) => {
-      if (unit === title) {
-        lines.push(title);
+    const segmenter =
+      typeof Intl !== "undefined" && Intl.Segmenter
+        ? new Intl.Segmenter("zh", { granularity: "word" })
+        : null;
+    const count = (value) => Array.from(value).length;
+    const clean = (value) =>
+      value.replace(/[~～]/g, "到").replace(/[\s，。！？；：、“”‘’（）《》【】…—,.!?;:'"()[\]{}<>|\\/]+/g, "");
+    const wordsOf = (value) => {
+      const cleaned = clean(value);
+      if (!cleaned) return [];
+      if (!segmenter) return Array.from(cleaned);
+      return Array.from(segmenter.segment(cleaned), (item) => item.segment).filter(Boolean);
+    };
+    const targets = [7, 8, 6, 9, 7, 5, 8];
+    let targetIndex = 0;
+    const shouldAvoidStart = (value) => /^[的了着过吗呢吧啊呀和与或及而但却就都也还更再又才儿岁十]/.test(value);
+    const pushLine = (value) => {
+      const line = value.trim();
+      if (!line) return;
+      if (shouldAvoidStart(line) && lines.length && lines.at(-1) !== titleText && count(lines.at(-1)) + 1 <= 9) {
+        lines[lines.length - 1] += line.slice(0, 1);
+        if (line.slice(1)) lines.push(line.slice(1));
         return;
       }
-      let rest = unit;
-      while (rest.length > 9) {
-        let part = rest.slice(0, 9);
-        rest = rest.slice(9);
-        if (rest.startsWith("的")) {
-          rest = part.slice(-1) + rest;
-          part = part.slice(0, -1);
+      lines.push(line);
+    };
+    const pushSemanticUnit = (unit) => {
+      const words = wordsOf(unit);
+      let line = "";
+      words.forEach((word, index) => {
+        if (count(word) > 9) {
+          if (line) {
+            pushLine(line);
+            line = "";
+          }
+          const finalPart = Array.from(word).reduce((part, char) => {
+            if (count(part + char) > 9) {
+              pushLine(part);
+              return char;
+            }
+            return part + char;
+          }, "");
+          if (finalPart) pushLine(finalPart);
+          return;
         }
-        lines.push(part);
+        if (line && count(line + word) > 9) {
+          pushLine(line);
+          line = "";
+        }
+        line += word;
+        const next = words[index + 1] || "";
+        const target = targets[targetIndex % targets.length];
+        if (
+          line &&
+          count(line) >= target &&
+          next &&
+          !shouldAvoidStart(next) &&
+          count(line + next) <= 9
+        ) {
+          pushLine(line);
+          line = "";
+          targetIndex += 1;
+        }
+      });
+      if (line) pushLine(line);
+    };
+    const repairBadStarts = () => {
+      for (let index = 1; index < lines.length; index += 1) {
+        const line = lines[index];
+        const previous = lines[index - 1];
+        if (!shouldAvoidStart(line) || previous === titleText) continue;
+        const previousChars = Array.from(previous);
+        const lineLength = count(line);
+        for (let take = Math.min(3, previousChars.length - 1); take >= 1; take -= 1) {
+          if (lineLength + take > 9) continue;
+          lines[index - 1] = previousChars.slice(0, -take).join("");
+          lines[index] = previousChars.slice(-take).join("") + line;
+          break;
+        }
       }
-      if (rest) lines.push(rest);
+    };
+
+    units.forEach((unit) => {
+      if (unit === titleMarker) {
+        lines.push(titleText);
+        return;
+      }
+      pushSemanticUnit(unit);
     });
+    repairBadStarts();
     return lines.join("\n");
   };
 
@@ -111,6 +191,7 @@
       bookTitle,
       author: "埃里克·乔根森",
       videoDescription: "普通人怎样摆脱只靠时间换钱？《纳瓦尔宝典》从财富、专长、杠杆、长期主义与幸福五个角度，拆解纳瓦尔的核心思维：打造睡觉时仍能运转的资产，放大独特能力，并把幸福练成不依赖外界的内在技能。",
+      videoLink: "",
       original: `如果我告诉你，获得财富和税后收入是通过学习就能掌握的技能，而非天生注定和纯靠运气，你愿意学吗？可能很多人一听就摇头了，我又不是富二代，也没中彩票的命，每天加班累成狗，还财富自由呢？但你想过没有，为什么同样是白手起家，有人一辈子都在用时间换钱，而有人却能创造出为自己24小时工作的资产，这中间的差距真的只是运气吗？然而真相是，支付更像是一门手艺，就像学开车一样，是可以刻意练习的。今天我要跟你精讲的这本书纳瓦尔宝典，就是把你从埋头拉车的思维，升级到抬头看路，甚至设计赛道的终极指南。这本书是硅谷顶级投资人纳瓦尔拉维坎特的智慧精华。他从小移民，家境普通，但靠一套独特的思维模型实现了财富自由，成为了投资巨头。这本书不是教你怎么投机取巧，而是帮你重塑赚钱的底层逻辑。接下来，我将为你拆解的5个核心要点，可能会彻底改变你对工作和财富的看法。第一点，也是最重要的一点，财富和收入根本不是一回事。纳瓦尔一上来就敲黑板，很多人穷。
 
 穷其一生都是在追求更高的收入，而不是在创造财富。什么是收入？就是你用时间换来的工资，你干活才有，不干就停。而财富是什么？是你在睡觉时依然能为你赚钱的资产。比如你写的程序，你创立的品牌，你持有的股权，你创作的知识产权。举个书里的例子，一个顶尖程序员，如果他只是朝九晚五给别人写代码，拿高薪，那他拥有的是高收入。但如果他利用业余时间开发了一个有用的软件工具或一个小游戏，放到网上去销售，哪怕他在睡觉、旅游，这个产品也在自动产生销售，这就是在创造财富资产。纳瓦尔自己就是典范，他通过早期投资，像Uber这样的公司获得了巨大的股权资产，这些资产在他不工作时也在增值。所以我们第一个要扭转的观念就是，别只是想着怎么升职加薪，要多思考如何构建属于自己的能24小时运转的财富生钱系统。你可能会说，我没资源，没人脉怎么做？这就是我们接下来要讲的第二个核心能力，它几乎不需要本金，就是找到并深耕你的专长，他是你财富大厦的基石，纳瓦尔说。

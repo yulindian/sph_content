@@ -6,7 +6,13 @@
   const rows = Array.isArray(window.SPH_CONTENT_ROWS) ? window.SPH_CONTENT_ROWS : [];
 
   const tableBody = document.querySelector("#contentRows");
+  const completedTableBody = document.querySelector("#completedContentRows");
   const emptyState = document.querySelector("#emptyState");
+  const completedEmptyState = document.querySelector("#completedEmptyState");
+  const activeTableScroll = document.querySelector("#activeTableScroll");
+  const completedTableScroll = document.querySelector("#completedTableScroll");
+  const activeVisibleCount = document.querySelector("#activeVisibleCount");
+  const completedVisibleCount = document.querySelector("#completedVisibleCount");
   const searchInput = document.querySelector("#searchInput");
   const statusFilter = document.querySelector("#statusFilter");
   const visibleCount = document.querySelector("#visibleCount");
@@ -44,10 +50,13 @@
 
   const ensureRowState = (row) => {
     if (!state[row.id]) {
-      state[row.id] = { note: "", status: "待审核" };
+      state[row.id] = { note: "", status: "待审核", videoLink: row.videoLink || "" };
     }
     if (!STATUS_OPTIONS.includes(state[row.id].status)) {
       state[row.id].status = "待审核";
+    }
+    if (typeof state[row.id].videoLink !== "string") {
+      state[row.id].videoLink = row.videoLink || "";
     }
     return state[row.id];
   };
@@ -140,6 +149,49 @@
     return cell;
   };
 
+  const createVideoLinkCell = (row) => {
+    const cell = document.createElement("td");
+    const wrapper = document.createElement("div");
+    const input = document.createElement("input");
+    const actions = document.createElement("div");
+    const rowState = ensureRowState(row);
+
+    wrapper.className = "video-link-cell";
+    input.type = "url";
+    input.className = "video-link-input";
+    input.value = rowState.videoLink;
+    input.placeholder = "粘贴视频链接";
+    input.setAttribute("aria-label", `${row.bookTitle}的视频链接`);
+    input.addEventListener("input", () => {
+      rowState.videoLink = input.value;
+      saveState();
+    });
+
+    const openLink = () => {
+      const value = input.value.trim();
+      if (!value) {
+        showToast("请先填写视频链接");
+        return;
+      }
+      try {
+        const url = new URL(value);
+        if (!["http:", "https:"].includes(url.protocol)) throw new Error();
+        window.open(url.href, "_blank", "noopener,noreferrer");
+      } catch {
+        showToast("请输入有效的 http(s) 链接");
+      }
+    };
+
+    actions.className = "cell-actions";
+    actions.append(
+      createButton("打开", openLink),
+      createButton("复制", () => copyText(input.value.trim()))
+    );
+    wrapper.append(input, actions);
+    cell.append(wrapper);
+    return cell;
+  };
+
   const createStatusCell = (row) => {
     const cell = document.createElement("td");
     const fieldset = document.createElement("fieldset");
@@ -161,6 +213,7 @@
       input.addEventListener("change", () => {
         rowState.status = status;
         saveState();
+        renderRows();
         updateSummary();
         applyFilters();
       });
@@ -173,27 +226,42 @@
     return cell;
   };
 
+  const createTableRow = (row, index) => {
+    const tableRow = document.createElement("tr");
+    tableRow.dataset.id = row.id;
+    tableRow.append(
+      createIndexCell(index),
+      createReadonlyCell(row, "书名", row.bookTitle, true),
+      createReadonlyCell(row, "作者", row.author, true),
+      createReadonlyCell(row, "视频简介", row.videoDescription),
+      createVideoLinkCell(row),
+      createReadonlyCell(row, "原文", row.original),
+      createReadonlyCell(row, "二创", row.rewritten),
+      createReadonlyCell(row, "分段文案", row.segmented),
+      createReadonlyCell(row, "生图提示词", row.imagePrompts),
+      createReadonlyCell(row, "字幕", row.subtitles),
+      createNoteCell(row),
+      createStatusCell(row)
+    );
+    return tableRow;
+  };
+
   const renderRows = () => {
     tableBody.replaceChildren();
+    completedTableBody.replaceChildren();
+    let activeIndex = 0;
+    let completedIndex = 0;
+
     rows.forEach((row, index) => {
       if (!row.id) row.id = `row-${index + 1}`;
-      ensureRowState(row);
-      const tableRow = document.createElement("tr");
-      tableRow.dataset.id = row.id;
-      tableRow.append(
-        createIndexCell(index),
-        createReadonlyCell(row, "书名", row.bookTitle, true),
-        createReadonlyCell(row, "作者", row.author, true),
-        createReadonlyCell(row, "视频简介", row.videoDescription),
-        createReadonlyCell(row, "原文", row.original),
-        createReadonlyCell(row, "二创", row.rewritten),
-        createReadonlyCell(row, "分段文案", row.segmented),
-        createReadonlyCell(row, "生图提示词", row.imagePrompts),
-        createReadonlyCell(row, "字幕", row.subtitles),
-        createNoteCell(row),
-        createStatusCell(row)
-      );
-      tableBody.append(tableRow);
+      const rowState = ensureRowState(row);
+      if (rowState.status === "已制作") {
+        completedTableBody.append(createTableRow(row, completedIndex));
+        completedIndex += 1;
+      } else {
+        tableBody.append(createTableRow(row, activeIndex));
+        activeIndex += 1;
+      }
     });
     saveState();
   };
@@ -213,21 +281,37 @@
     const query = searchInput.value.trim().toLowerCase();
     const selectedStatus = statusFilter.value;
     let shown = 0;
+    let activeShown = 0;
+    let completedShown = 0;
 
     rows.forEach((row) => {
-      const haystack = `${row.bookTitle} ${row.author} ${row.videoDescription}`.toLowerCase();
+      const rowState = ensureRowState(row);
+      const haystack =
+        `${row.bookTitle} ${row.author} ${row.videoDescription} ${rowState.videoLink}`.toLowerCase();
       const matchesQuery = !query || haystack.includes(query);
       const matchesStatus =
-        selectedStatus === "all" || ensureRowState(row).status === selectedStatus;
-      const tableRow = tableBody.querySelector(`[data-id="${CSS.escape(row.id)}"]`);
+        selectedStatus === "all" || rowState.status === selectedStatus;
+      const targetBody = rowState.status === "已制作" ? completedTableBody : tableBody;
+      const tableRow = targetBody.querySelector(`[data-id="${CSS.escape(row.id)}"]`);
       const visible = matchesQuery && matchesStatus;
       tableRow.hidden = !visible;
-      if (visible) shown += 1;
+      if (visible) {
+        shown += 1;
+        if (rowState.status === "已制作") {
+          completedShown += 1;
+        } else {
+          activeShown += 1;
+        }
+      }
     });
 
     visibleCount.textContent = `当前显示 ${shown} 条`;
-    emptyState.hidden = shown !== 0;
-    document.querySelector(".table-scroll").hidden = shown === 0;
+    activeVisibleCount.textContent = `${activeShown} 条`;
+    completedVisibleCount.textContent = `${completedShown} 条`;
+    emptyState.hidden = activeShown !== 0;
+    activeTableScroll.hidden = activeShown === 0;
+    completedEmptyState.hidden = completedShown !== 0;
+    completedTableScroll.hidden = completedShown === 0;
   };
 
   searchInput.addEventListener("input", applyFilters);

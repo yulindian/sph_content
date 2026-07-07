@@ -4,8 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="视频号图书内容生产看板">
+  <meta http-equiv="Cache-Control" content="no-store">
   <title>图书视频内容看板</title>
-  <link rel="stylesheet" href="./styles.css">
+  <script>
+    (() => {
+      const params = new URLSearchParams(location.search);
+      if (!params.has("fresh")) {
+        params.set("fresh", String(Date.now()));
+        location.replace(`${location.pathname}?${params.toString()}`);
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="./styles.css?v=semantic-subtitles-20260707-2">
 </head>
 <body>
   <header class="page-header">
@@ -30,7 +40,7 @@
     <section class="toolbar" aria-label="筛选工具">
       <label class="search-box">
         <span>搜索</span>
-        <input id="searchInput" type="search" placeholder="搜索书名、作者或视频简介">
+        <input id="searchInput" type="search" placeholder="搜索书名、作者、视频简介或视频链接">
       </label>
       <label class="filter-box">
         <span>制作状态</span>
@@ -44,8 +54,16 @@
       <p id="visibleCount" class="visible-count">当前显示 0 条</p>
     </section>
 
-    <section class="table-shell" aria-label="稿件内容表">
-      <div class="table-scroll">
+    <section class="board-section" aria-labelledby="activeTableTitle">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">IN PROGRESS</p>
+          <h2 id="activeTableTitle">进行中</h2>
+        </div>
+        <span id="activeVisibleCount">0 条</span>
+      </div>
+      <div class="table-shell" aria-label="进行中稿件内容表">
+      <div id="activeTableScroll" class="table-scroll">
         <table>
           <thead>
             <tr>
@@ -53,6 +71,7 @@
               <th class="col-book">书名</th>
               <th class="col-author">作者</th>
               <th class="col-intro">视频简介</th>
+              <th class="col-link">视频链接</th>
               <th class="col-long">原文</th>
               <th class="col-long">二创</th>
               <th class="col-long">分段文案</th>
@@ -66,8 +85,46 @@
         </table>
       </div>
       <div id="emptyState" class="empty-state" hidden>
-        <strong>还没有稿件</strong>
-        <span>运行全流程 Skill 后，新稿会显示在这里。</span>
+        <strong>没有进行中的稿件</strong>
+        <span>待审核和待制作的内容会显示在这里。</span>
+      </div>
+      </div>
+    </section>
+
+    <section class="board-section completed-section" aria-labelledby="completedTableTitle">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">COMPLETED</p>
+          <h2 id="completedTableTitle">已制作</h2>
+        </div>
+        <span id="completedVisibleCount">0 条</span>
+      </div>
+      <div class="table-shell completed-table-shell" aria-label="已制作稿件内容表">
+        <div id="completedTableScroll" class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th class="col-index">序号</th>
+                <th class="col-book">书名</th>
+                <th class="col-author">作者</th>
+                <th class="col-intro">视频简介</th>
+                <th class="col-link">视频链接</th>
+                <th class="col-long">原文</th>
+                <th class="col-long">二创</th>
+                <th class="col-long">分段文案</th>
+                <th class="col-long">生图提示词</th>
+                <th class="col-long">字幕</th>
+                <th class="col-note">备注</th>
+                <th class="col-status">制作状态</th>
+              </tr>
+            </thead>
+            <tbody id="completedContentRows"></tbody>
+          </table>
+        </div>
+        <div id="completedEmptyState" class="empty-state" hidden>
+          <strong>还没有已制作稿件</strong>
+          <span>将制作状态切换为“已制作”后，内容会自动移动到这里。</span>
+        </div>
       </div>
     </section>
   </main>
@@ -89,7 +146,36 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="./data.js"></script>
-  <script src="./app.js"></script>
+  <script>
+    (() => {
+      const version = `latest-${Date.now()}`;
+      const stylesheet = document.querySelector('link[rel="stylesheet"]');
+      if (stylesheet) stylesheet.href = `./styles.css?v=${version}`;
+      const scripts = [
+        "./data.js",
+        "./data-naval-wealth.js",
+        "./data-late-health.js",
+        "./data-late-health-active-aging.js",
+        "./app.js"
+      ];
+      const loadScript = (src) =>
+        new Promise((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = `${src}?v=${version}`;
+          script.onload = resolve;
+          script.onerror = () => reject(new Error(`加载失败：${src}`));
+          document.body.append(script);
+        });
+
+      scripts
+        .reduce((chain, src) => chain.then(() => loadScript(src)), Promise.resolve())
+        .catch((error) => {
+          document.body.insertAdjacentHTML(
+            "beforeend",
+            `<div class="empty-state"><strong>脚本加载失败</strong><span>${error.message}</span></div>`
+          );
+        });
+    })();
+  </script>
 </body>
 </html>
