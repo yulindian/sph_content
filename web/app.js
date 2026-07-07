@@ -50,13 +50,21 @@
 
   const ensureRowState = (row) => {
     if (!state[row.id]) {
-      state[row.id] = { note: "", status: "待审核", videoLink: row.videoLink || "" };
+      state[row.id] = {
+        note: "",
+        status: "待审核",
+        videoLink: row.videoLink || "",
+        oneLineIntro: row.oneLineIntro || ""
+      };
     }
     if (!STATUS_OPTIONS.includes(state[row.id].status)) {
       state[row.id].status = "待审核";
     }
     if (typeof state[row.id].videoLink !== "string") {
       state[row.id].videoLink = row.videoLink || "";
+    }
+    if (typeof state[row.id].oneLineIntro !== "string") {
+      state[row.id].oneLineIntro = row.oneLineIntro || "";
     }
     return state[row.id];
   };
@@ -146,6 +154,33 @@
     });
 
     cell.append(input);
+    return cell;
+  };
+
+  const createOneLineIntroCell = (row) => {
+    const cell = document.createElement("td");
+    const wrapper = document.createElement("div");
+    const input = document.createElement("textarea");
+    const actions = document.createElement("div");
+    const rowState = ensureRowState(row);
+
+    wrapper.className = "editable-text-cell";
+    input.className = "one-line-input";
+    input.value = rowState.oneLineIntro || row.oneLineIntro || "";
+    input.placeholder = "写一句能吸引用户停留的话";
+    input.setAttribute("aria-label", `${row.bookTitle}的一句话介绍`);
+    input.addEventListener("input", () => {
+      rowState.oneLineIntro = input.value;
+      saveState();
+    });
+
+    actions.className = "cell-actions";
+    actions.append(
+      createButton("复制", () => copyText(input.value.trim())),
+      createButton("查看", () => openDialog(row, "一句话介绍", input.value.trim()))
+    );
+    wrapper.append(input, actions);
+    cell.append(wrapper);
     return cell;
   };
 
@@ -239,6 +274,7 @@
       createReadonlyCell(row, "二创", row.rewritten),
       createReadonlyCell(row, "分段文案", row.segmented),
       createReadonlyCell(row, "生图提示词", row.imagePrompts),
+      createOneLineIntroCell(row),
       createReadonlyCell(row, "字幕", row.subtitles),
       createNoteCell(row),
       createStatusCell(row)
@@ -287,7 +323,7 @@
     rows.forEach((row) => {
       const rowState = ensureRowState(row);
       const haystack =
-        `${row.bookTitle} ${row.author} ${row.videoDescription} ${rowState.videoLink}`.toLowerCase();
+        `${row.bookTitle} ${row.author} ${row.videoDescription} ${row.oneLineIntro || ""} ${rowState.oneLineIntro} ${rowState.videoLink}`.toLowerCase();
       const matchesQuery = !query || haystack.includes(query);
       const matchesStatus =
         selectedStatus === "all" || rowState.status === selectedStatus;

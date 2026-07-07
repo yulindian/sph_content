@@ -193,7 +193,7 @@ button:focus-visible {
 
 table {
   width: 100%;
-  min-width: 2660px;
+  min-width: 2880px;
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;
@@ -271,6 +271,10 @@ tbody tr:nth-child(even) .row-index {
 
 .col-intro {
   width: 255px;
+}
+
+.col-one-line {
+  width: 220px;
 }
 
 .board-section + .board-section {
@@ -382,6 +386,19 @@ tbody tr:nth-child(even) .row-index {
 }
 
 .note-input {
+  width: 100%;
+  min-height: 8.5rem;
+  padding: 0.65rem;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.editable-text-cell {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.one-line-input {
   width: 100%;
   min-height: 8.5rem;
   padding: 0.65rem;
