@@ -4,15 +4,13 @@
   const STATUS_OPTIONS = ["待审核", "待制作", "已制作"];
   const STORAGE_KEY = "sph-content-workflow-state-v1";
   const rows = Array.isArray(window.SPH_CONTENT_ROWS) ? window.SPH_CONTENT_ROWS : [];
+  const pageMode = document.body.dataset.page === "completed" ? "completed" : "active";
+  const isCompletedPage = pageMode === "completed";
 
   const tableBody = document.querySelector("#contentRows");
-  const completedTableBody = document.querySelector("#completedContentRows");
   const emptyState = document.querySelector("#emptyState");
-  const completedEmptyState = document.querySelector("#completedEmptyState");
   const activeTableScroll = document.querySelector("#activeTableScroll");
-  const completedTableScroll = document.querySelector("#completedTableScroll");
   const activeVisibleCount = document.querySelector("#activeVisibleCount");
-  const completedVisibleCount = document.querySelector("#completedVisibleCount");
   const searchInput = document.querySelector("#searchInput");
   const statusFilter = document.querySelector("#statusFilter");
   const visibleCount = document.querySelector("#visibleCount");
@@ -284,20 +282,17 @@
 
   const renderRows = () => {
     tableBody.replaceChildren();
-    completedTableBody.replaceChildren();
-    let activeIndex = 0;
-    let completedIndex = 0;
+    let renderedIndex = 0;
 
     rows.forEach((row, index) => {
       if (!row.id) row.id = `row-${index + 1}`;
       const rowState = ensureRowState(row);
-      if (rowState.status === "已制作") {
-        completedTableBody.append(createTableRow(row, completedIndex));
-        completedIndex += 1;
-      } else {
-        tableBody.append(createTableRow(row, activeIndex));
-        activeIndex += 1;
-      }
+      const belongsToPage = isCompletedPage
+        ? rowState.status === "已制作"
+        : rowState.status !== "已制作";
+      if (!belongsToPage) return;
+      tableBody.append(createTableRow(row, renderedIndex));
+      renderedIndex += 1;
     });
     saveState();
   };
@@ -317,37 +312,33 @@
     const query = searchInput.value.trim().toLowerCase();
     const selectedStatus = statusFilter.value;
     let shown = 0;
-    let activeShown = 0;
-    let completedShown = 0;
+    let pageShown = 0;
 
     rows.forEach((row) => {
       const rowState = ensureRowState(row);
+      const belongsToPage = isCompletedPage
+        ? rowState.status === "已制作"
+        : rowState.status !== "已制作";
+      if (!belongsToPage) return;
       const haystack =
         `${row.bookTitle} ${row.author} ${row.videoDescription} ${row.oneLineIntro || ""} ${rowState.oneLineIntro} ${rowState.videoLink}`.toLowerCase();
       const matchesQuery = !query || haystack.includes(query);
       const matchesStatus =
         selectedStatus === "all" || rowState.status === selectedStatus;
-      const targetBody = rowState.status === "已制作" ? completedTableBody : tableBody;
-      const tableRow = targetBody.querySelector(`[data-id="${CSS.escape(row.id)}"]`);
+      const tableRow = tableBody.querySelector(`[data-id="${CSS.escape(row.id)}"]`);
+      if (!tableRow) return;
       const visible = matchesQuery && matchesStatus;
       tableRow.hidden = !visible;
       if (visible) {
         shown += 1;
-        if (rowState.status === "已制作") {
-          completedShown += 1;
-        } else {
-          activeShown += 1;
-        }
+        pageShown += 1;
       }
     });
 
     visibleCount.textContent = `当前显示 ${shown} 条`;
-    activeVisibleCount.textContent = `${activeShown} 条`;
-    completedVisibleCount.textContent = `${completedShown} 条`;
-    emptyState.hidden = activeShown !== 0;
-    activeTableScroll.hidden = activeShown === 0;
-    completedEmptyState.hidden = completedShown !== 0;
-    completedTableScroll.hidden = completedShown === 0;
+    activeVisibleCount.textContent = `${pageShown} 条`;
+    emptyState.hidden = pageShown !== 0;
+    activeTableScroll.hidden = pageShown === 0;
   };
 
   searchInput.addEventListener("input", applyFilters);
